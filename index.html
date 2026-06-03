@@ -73,6 +73,32 @@
   .day-note{font-size:12.5px;color:var(--muted);margin:2px 0 14px}
   .day-note b{color:var(--brand2)}
 
+  /* calendar */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .cal-head .m{font-size:13px;font-weight:700;color:var(--ink)}
+  .cal-nav{display:flex;gap:6px}
+  .cal-nav button{width:28px;height:28px;border-radius:8px;border:1px solid var(--input-line);background:var(--input);
+    cursor:pointer;font-size:15px;line-height:1;color:var(--ink);padding:0}
+  .cal-nav button:hover{border-color:var(--brand)}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+  .cal-dow{font-size:10px;text-align:center;color:var(--muted);font-weight:700;padding-bottom:3px}
+  .cal-day{height:27px;display:grid;place-items:center;font-size:12px;border-radius:7px;cursor:pointer;border:1px solid transparent;color:var(--ink2)}
+  .cal-day:hover{background:var(--input)}
+  .cal-day.muted{color:var(--muted);opacity:.35;cursor:default}
+  .cal-day.muted:hover{background:transparent}
+  .cal-day.sel{background:var(--brand);color:#fff;font-weight:700}
+  .cal-day.today{border-color:var(--brand)}
+  .cal-empty{visibility:hidden;cursor:default}
+  .openonly{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--ink2);margin-top:12px;cursor:pointer;line-height:1.35}
+  .openonly input{accent-color:var(--brand);margin-top:2px}
+  .seldays{font-size:12px;color:var(--muted);margin-top:9px}
+  .seldays b{color:var(--brand2)}
+
+  /* open-status pills on results */
+  .tag.open{background:rgba(22,163,74,.12);border-color:rgba(22,163,74,.45);color:#0c5e2d}
+  .tag.closed{background:rgba(244,99,46,.12);border-color:rgba(244,99,46,.45);color:#b23a14}
+  .tag.unknown{color:var(--muted)}
+
   /* LAYOUT: sidebar + main */
   .layout{display:grid;grid-template-columns:248px 1fr;gap:18px;align-items:start}
   .sidebar{position:sticky;top:18px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
@@ -189,6 +215,13 @@
   <div class="layout">
     <!-- LEFT NAV: FILTERS -->
     <aside class="sidebar">
+      <p class="side-h">When are you visiting?</p>
+      <p class="side-sub">Pick the days you'll be there.</p>
+      <div class="cal" id="cal"></div>
+      <label class="openonly"><input type="checkbox" id="openOnly" /> <span>Only show places open on my dates</span></label>
+      <div class="seldays" id="selDays">No days selected — showing all.</div>
+      <div class="side-divider"></div>
+
       <p class="side-h">Who's traveling?</p>
       <p class="side-sub">Tap to tune your results.</p>
       <nav class="nav" id="nav"></nav>
@@ -318,6 +351,9 @@ const state = {
   selectedTypes:new Set(),
   places:[], itinerary:[],
   planMode:"recommended",   // "recommended" (auto) | "custom" (user edited)
+  selectedDates:new Set(),  // 'YYYY-MM-DD' the user is visiting
+  openOnlyFilter:false,
+  calView:null,             // Date set to first of viewed month
 };
 
 /* ---------------- Utilities ---------------- */
@@ -387,9 +423,65 @@ async function fetchPlaces(){
       kindLabel: KIND_LABEL[kind], emoji: KIND_EMOJI[kind]||"📌",
       lat, lon, distKm: haversineKm(state.center,{lat,lon}),
       website: tags.website || tags["contact:website"] || null,
+      oh: tags.opening_hours || null,
     });
   }
   return out;
+}
+
+/* ---------------- Opening-hours filter ---------------- */
+const DOW = {Mo:0,Tu:1,We:2,Th:3,Fr:4,Sa:5,Su:6};
+const DOW_LABELS = ["Mo","Tu","We","Th","Fr","Sa","Su"];
+/* Parse an OSM opening_hours string into the Set of weekdays (Mo=0..Su=6) that
+   have at least one open interval. Returns null if hours are unknown. Pragmatic —
+   handles the common cases (24/7, day ranges/lists, time ranges, "off"). */
+function parseOpenDays(oh){
+  if(!oh) return null;
+  const s = oh.trim();
+  if(/24\s*\/\s*7/.test(s)) return new Set([0,1,2,3,4,5,6]);
+  const open = new Set();
+  for(let rule of s.split(";")){
+    rule = rule.trim(); if(!rule) continue;
+    const isOff = /\b(off|closed)\b/i.test(rule);
+    const days = new Set();
+    const re = /(Mo|Tu|We|Th|Fr|Sa|Su)(?:\s*-\s*(Mo|Tu|We|Th|Fr|Sa|Su))?/g;
+    let m, foundDay=false;
+    while((m = re.exec(rule))){
+      foundDay = true;
+      const a = DOW[m[1]];
+      if(m[2]!=null){ const b=DOW[m[2]]; let i=a; while(true){ days.add(i); if(i===b) break; i=(i+1)%7; } }
+      else days.add(a);
+    }
+    const hasTime = /\d{1,2}:\d{2}/.test(rule) || /\b(sunrise|sunset|dawn|dusk)\b/i.test(rule);
+    if(!foundDay){
+      if(/\b(PH|SH)\b/.test(rule)){ /* public/school-holiday rule — ignore */ }
+      else if(isOff && rule.replace(/\b(off|closed)\b/ig,"").trim()===""){ [0,1,2,3,4,5,6].forEach(d=>open.delete(d)); }
+      else if(hasTime && !isOff){ [0,1,2,3,4,5,6].forEach(d=>open.add(d)); }
+    } else {
+      if(isOff) days.forEach(d=>open.delete(d));
+      else days.forEach(d=>open.add(d));
+    }
+  }
+  return open;
+}
+function selectedWeekdays(){
+  const s = new Set();
+  state.selectedDates.forEach(k=>{ const dt=new Date(k+"T00:00:00"); s.add((dt.getDay()+6)%7); });
+  return s;
+}
+/* {known, open} — open is true/false when known, null when hours unknown */
+function placeStatus(p){
+  if(!state.selectedDates.size) return {known:p.oh!=null, open:null};
+  const days = parseOpenDays(p.oh);
+  if(days===null) return {known:false, open:null};
+  const sel = selectedWeekdays();
+  let open=false; for(const d of sel){ if(days.has(d)){ open=true; break; } }
+  return {known:true, open};
+}
+function filterActive(){ return state.openOnlyFilter && state.selectedDates.size>0; }
+function visiblePlaces(){
+  if(!filterActive()) return state.places;
+  return state.places.filter(p=>placeStatus(p).open!==false); // keep open + unknown, drop known-closed
 }
 
 /* ---------------- Scoring & Top 10 ---------------- */
@@ -404,7 +496,7 @@ function scorePlace(p){
   return s;
 }
 function computeTop(){
-  return state.places.map(p=>({p, s:scorePlace(p)}))
+  return visiblePlaces().map(p=>({p, s:scorePlace(p)}))
     .sort((a,b)=> b.s-a.s || a.p.distKm-b.p.distKm)
     .slice(0,10).map(x=>x.p);
 }
@@ -425,10 +517,20 @@ function renderThings(){
   if(!state.center){ body.innerHTML = `<div class="empty">Enter where you are above and tap <b>Find things to do</b>.</div>`; return; }
   if(!state.places.length){ body.innerHTML = `<div class="empty">No named spots found in this radius. Try widening the radius on the left, or a nearby city.</div>`; return; }
   const top = computeTop();
-  document.getElementById("resCount").textContent = `Top ${top.length} of ${state.places.length} nearby · ${state.center.label}`;
+  if(!top.length){ body.innerHTML = `<div class="empty">Nothing is confirmed open on your selected days within this radius. Try unchecking “Only show places open on my dates”, picking other days, or widening the radius.</div>`; document.getElementById("resCount").textContent=""; return; }
+  const totalNote = filterActive() ? `${visiblePlaces().length} open on your dates` : `${state.places.length} nearby`;
+  document.getElementById("resCount").textContent = `Top ${top.length} of ${totalNote} · ${state.center.label}`;
+  const datesOn = state.selectedDates.size>0;
   const list = document.createElement("div"); list.className="list";
   top.forEach((p,i)=>{
     const inItin = state.itinerary.some(x=>x.id===p.id);
+    const st = placeStatus(p);
+    let openPill = "";
+    if(datesOn){
+      if(st.open===true) openPill = `<span class="tag open">✓ Open your dates</span>`;
+      else if(st.known && st.open===false) openPill = `<span class="tag closed">✕ Closed your dates</span>`;
+      else openPill = `<span class="tag unknown">Hours unknown</span>`;
+    }
     const row = el(`
       <div class="row ${i<3?'top':''}">
         <div class="rank">${i+1}</div>
@@ -437,6 +539,7 @@ function renderThings(){
           <div class="r-meta">
             <span class="tag">${p.emoji} ${esc(p.kindLabel)}</span>
             <span class="dist">📍 ${fmtKm(p.distKm)} away</span>
+            ${openPill}
           </div>
         </div>
         <div class="r-act">
@@ -531,8 +634,8 @@ function renderItin(){
     return;
   }
   note.innerHTML = state.planMode==="recommended"
-    ? `<b>✨ Recommended for you</b> — a suggested day based on your picks. Add, remove, or clear it to make it yours.`
-    : `<b>Your custom plan</b> — edited by you. Tap “Recommend again” to start over from a suggestion.`;
+    ? `<b>✨ Suggested itinerary</b> — auto-built from your top picks${state.selectedDates.size?` for your selected days`:""}. Add, remove, or clear it to make it yours.`
+    : `<b>Your custom plan</b> — edited by you. Tap “Recommend again” for a fresh suggested itinerary.`;
   const sched = buildSchedule();
   const wrap = document.createElement("div"); wrap.className="itin";
   sched.forEach(s=>{
@@ -683,6 +786,54 @@ async function chooseAc(i){
   else if(it.q){ setStatus(`<span class="spin"></span> Locating ${esc(it.main)}…`); try{ state.center=await geocode(it.q); await runDiscovery(); }catch(e){ setStatus(e.message,true); } }
 }
 
+/* ---------------- Calendar ---------------- */
+function ymd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function onDatesChanged(){
+  renderSelDays();
+  if(state.places.length){
+    renderThings();
+    if(state.planMode==="recommended") recommendDay();
+  }
+}
+function renderCal(){
+  const cal = document.getElementById("cal");
+  if(!state.calView){ const t=new Date(); state.calView=new Date(t.getFullYear(),t.getMonth(),1); }
+  const view = state.calView, y=view.getFullYear(), m=view.getMonth();
+  const monthName = view.toLocaleString("en-US",{month:"long",year:"numeric"});
+  const startDow = (new Date(y,m,1).getDay()+6)%7;
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  let html = `<div class="cal-head"><span class="m">${monthName}</span><span class="cal-nav">`+
+             `<button data-cal="prev" aria-label="Previous month">‹</button>`+
+             `<button data-cal="next" aria-label="Next month">›</button></span></div><div class="cal-grid">`;
+  DOW_LABELS.forEach(d=> html+=`<div class="cal-dow">${d}</div>`);
+  for(let i=0;i<startDow;i++) html += `<div class="cal-day cal-empty"></div>`;
+  for(let day=1; day<=daysInMonth; day++){
+    const dt=new Date(y,m,day), key=ymd(dt), past = dt<today;
+    const cls=["cal-day"];
+    if(past) cls.push("muted");
+    if(state.selectedDates.has(key)) cls.push("sel");
+    if(dt.getTime()===today.getTime()) cls.push("today");
+    html += `<div class="${cls.join(" ")}" ${past?"":`data-day="${key}"`}>${day}</div>`;
+  }
+  html += `</div>`;
+  cal.innerHTML = html;
+  cal.querySelectorAll("[data-day]").forEach(c=>c.addEventListener("click",()=>{
+    const k=c.getAttribute("data-day");
+    if(state.selectedDates.has(k)) state.selectedDates.delete(k); else state.selectedDates.add(k);
+    renderCal(); onDatesChanged();
+  }));
+  cal.querySelector('[data-cal="prev"]').addEventListener("click",()=>{ state.calView=new Date(y,m-1,1); renderCal(); });
+  cal.querySelector('[data-cal="next"]').addEventListener("click",()=>{ state.calView=new Date(y,m+1,1); renderCal(); });
+}
+function renderSelDays(){
+  const node = document.getElementById("selDays");
+  if(!state.selectedDates.size){ node.innerHTML = "No days selected — showing all."; return; }
+  const dows = [...selectedWeekdays()].sort((a,b)=>a-b).map(i=>DOW_LABELS[i]);
+  const n = state.selectedDates.size;
+  node.innerHTML = `<b>${n}</b> day${n>1?"s":""} selected · ${esc(dows.join(", "))}`;
+}
+
 /* ---------------- Wiring (events) ---------------- */
 function initEvents(){
   document.getElementById("goBtn").addEventListener("click", ()=>{ hideAc(); discover(); });
@@ -706,6 +857,11 @@ function initEvents(){
   });
   document.addEventListener("click", e=>{ if(!e.target.closest(".acwrap")) hideAc(); });
 
+  document.getElementById("openOnly").addEventListener("change", e=>{
+    state.openOnlyFilter = e.target.checked;
+    if(state.places.length){ renderThings(); if(state.planMode==="recommended") recommendDay(); }
+  });
+
   const rad=document.getElementById("radius");
   rad.addEventListener("input",()=>{ document.getElementById("radiusVal").textContent = rad.value+" km"; });
   document.getElementById("clearFilters").addEventListener("click",()=>{
@@ -719,6 +875,8 @@ function initEvents(){
 }
 
 buildNav();
+renderCal();
+renderSelDays();
 initEvents();
 renderItin();
 </script>
