@@ -98,6 +98,19 @@
   .tag.open{background:rgba(22,163,74,.12);border-color:rgba(22,163,74,.45);color:#0c5e2d}
   .tag.closed{background:rgba(244,99,46,.12);border-color:rgba(244,99,46,.45);color:#b23a14}
   .tag.unknown{color:var(--muted)}
+  .tag.free{background:rgba(22,163,74,.12);border-color:rgba(22,163,74,.4);color:#0c7a3a}
+  .tag.paid{background:rgba(14,155,138,.12);border-color:rgba(14,155,138,.4);color:#0a6e62}
+
+  /* result sections */
+  .section + .section{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+  .sec-head{display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap}
+  .sec-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px}
+  .sec-count{font-size:12px;color:var(--muted);background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:1px 9px}
+  .sec-tools{margin-left:auto}
+  .cuisine-sel{font-size:12.5px;padding:8px 10px;border-radius:9px;border:1px solid var(--input-line);background:var(--input);color:var(--ink);cursor:pointer;max-width:180px}
+  .cuisine-sel:hover{border-color:var(--brand)}
+  .sec-empty{color:var(--muted);font-size:13.5px;padding:12px 4px}
+  .showmore{margin-top:10px}
 
   /* LAYOUT: sidebar + main */
   .layout{display:grid;grid-template-columns:248px 1fr;gap:18px;align-items:start}
@@ -237,7 +250,7 @@
     <div class="main">
       <section class="panel">
         <div class="toprow">
-          <h2>Top things to do</h2>
+          <h2>What's nearby</h2>
           <span class="count" id="resCount"></span>
         </div>
         <div class="activefilters" id="activeFilters"></div>
@@ -291,29 +304,43 @@ const KIND_WEIGHTS = {
   cinema:        {base:4, solo:1, couples:2, family:2, kids:2, friends:3, business:0, adventure:0, food:0},
   nightclub:     {base:4, solo:1, couples:1, family:0, kids:0, friends:3, business:1, adventure:1, food:0},
   bar:           {base:4, solo:2, couples:2, family:0, kids:0, friends:3, business:2, adventure:0, food:2},
-  restaurant:    {base:6, solo:2, couples:3, family:2, kids:1, friends:2, business:3, adventure:0, food:3},
-  cafe:          {base:4, solo:3, couples:2, family:1, kids:1, friends:2, business:2, adventure:0, food:2},
+  restaurant:    {base:4, solo:2, couples:3, family:2, kids:1, friends:2, business:3, adventure:0, food:3},
+  cafe:          {base:3, solo:3, couples:2, family:1, kids:1, friends:2, business:2, adventure:0, food:2},
   historic:      {base:5, solo:3, couples:2, family:2, kids:1, friends:1, business:1, adventure:1, food:0},
   aquarium:      {base:6, solo:1, couples:2, family:3, kids:3, friends:1, business:0, adventure:1, food:0},
+  activity:      {base:6, solo:2, couples:2, family:3, kids:3, friends:3, business:1, adventure:3, food:0},
+  nature:        {base:6, solo:3, couples:3, family:2, kids:2, friends:2, business:0, adventure:3, food:0},
+  market:        {base:5, solo:2, couples:2, family:2, kids:1, friends:2, business:1, adventure:1, food:2},
+  artscentre:    {base:5, solo:2, couples:2, family:2, kids:1, friends:2, business:1, adventure:0, food:1},
+  casino:        {base:3, solo:1, couples:2, family:0, kids:0, friends:2, business:1, adventure:1, food:0},
 };
 const MEAL_KINDS = new Set(["restaurant","cafe","bar"]);
 
 function overpassQuery(lat, lon, radiusM){
+  const t = `attraction|museum|gallery|viewpoint|artwork|theme_park|zoo|aquarium|picnic_site`;
+  const l = `park|garden|water_park|sports_centre|fitness_centre|bowling_alley|miniature_golf|golf_course|ice_rink|escape_game|trampoline_park|climbing|amusement_arcade|nature_reserve|stadium|dance|horse_riding`;
+  const a = `restaurant|cafe|bar|pub|theatre|cinema|nightclub|arts_centre|planetarium|casino|marketplace`;
+  const n = `beach|peak|waterfall|cave_entrance`;
   return `[out:json][timeout:25];
 (
-  node["tourism"~"attraction|museum|gallery|viewpoint|artwork|theme_park|zoo|aquarium"](around:${radiusM},${lat},${lon});
-  way["tourism"~"attraction|museum|gallery|viewpoint|theme_park|zoo|aquarium"](around:${radiusM},${lat},${lon});
+  node["tourism"~"${t}"](around:${radiusM},${lat},${lon});
+  way["tourism"~"${t}"](around:${radiusM},${lat},${lon});
+  node["leisure"~"${l}"](around:${radiusM},${lat},${lon});
+  way["leisure"~"${l}"](around:${radiusM},${lat},${lon});
+  node["amenity"~"${a}"](around:${radiusM},${lat},${lon});
+  way["amenity"~"${a}"](around:${radiusM},${lat},${lon});
   node["historic"](around:${radiusM},${lat},${lon});
-  node["leisure"~"park|garden"](around:${radiusM},${lat},${lon});
-  way["leisure"~"park|garden"](around:${radiusM},${lat},${lon});
-  node["amenity"~"restaurant|cafe|bar|theatre|cinema|nightclub"](around:${radiusM},${lat},${lon});
+  way["historic"](around:${radiusM},${lat},${lon});
+  node["natural"~"${n}"](around:${radiusM},${lat},${lon});
 );
-out center 200;`;
+out center 300;`;
 }
 
+const ACTIVITY_LEISURE = new Set(["sports_centre","fitness_centre","bowling_alley","miniature_golf","golf_course","ice_rink","escape_game","trampoline_park","climbing","amusement_arcade","stadium","dance","horse_riding"]);
 function deriveKind(tags){
   if(!tags) return null;
-  const t = tags.tourism, a = tags.amenity, l = tags.leisure;
+  const t = tags.tourism, a = tags.amenity, l = tags.leisure, nat = tags.natural;
+  // tourism
   if(t==="museum") return "museum";
   if(t==="gallery") return "gallery";
   if(t==="viewpoint") return "viewpoint";
@@ -322,14 +349,26 @@ function deriveKind(tags){
   if(t==="zoo") return "zoo";
   if(t==="aquarium") return "aquarium";
   if(t==="attraction") return "attraction";
+  if(t==="picnic_site") return "park";
+  // leisure
   if(l==="park") return "park";
   if(l==="garden") return "garden";
+  if(l==="water_park") return "themepark";
+  if(l==="nature_reserve") return "nature";
+  if(ACTIVITY_LEISURE.has(l)) return "activity";
+  // amenity
   if(a==="theatre") return "theatre";
   if(a==="cinema") return "cinema";
   if(a==="nightclub") return "nightclub";
+  if(a==="arts_centre"||a==="planetarium") return "artscentre";
+  if(a==="casino") return "casino";
+  if(a==="marketplace") return "market";
   if(a==="bar"||a==="pub") return "bar";
   if(a==="restaurant") return "restaurant";
   if(a==="cafe") return "cafe";
+  // natural
+  if(nat==="beach"||nat==="peak"||nat==="waterfall"||nat==="cave_entrance") return "nature";
+  // historic catch-all
   if(tags.historic) return "historic";
   return null;
 }
@@ -337,12 +376,14 @@ const KIND_LABEL = {
   museum:"Museum", gallery:"Gallery", attraction:"Attraction", viewpoint:"Scenic viewpoint",
   artwork:"Public art", themepark:"Theme park", zoo:"Zoo", aquarium:"Aquarium", park:"Park",
   garden:"Garden", theatre:"Theatre", cinema:"Cinema", nightclub:"Nightlife", bar:"Bar / pub",
-  restaurant:"Restaurant", cafe:"Café", historic:"Historic site"
+  restaurant:"Restaurant", cafe:"Café", historic:"Historic site",
+  activity:"Activity", nature:"Nature spot", market:"Market", artscentre:"Arts & culture", casino:"Casino"
 };
 const KIND_EMOJI = {
   museum:"🏛️", gallery:"🖼️", attraction:"⭐", viewpoint:"🌄", artwork:"🎨", themepark:"🎢",
   zoo:"🦁", aquarium:"🐠", park:"🌳", garden:"🌷", theatre:"🎭", cinema:"🎬", nightclub:"🪩",
-  bar:"🍻", restaurant:"🍽️", cafe:"☕", historic:"🏰"
+  bar:"🍻", restaurant:"🍽️", cafe:"☕", historic:"🏰",
+  activity:"🎯", nature:"🏞️", market:"🛍️", artscentre:"🎟️", casino:"🎰"
 };
 
 /* ---------------- State ---------------- */
@@ -354,6 +395,8 @@ const state = {
   selectedDates:new Set(),  // 'YYYY-MM-DD' the user is visiting
   openOnlyFilter:false,
   calView:null,             // Date set to first of viewed month
+  cuisine:"all",            // cuisine filter for the Eat section
+  expand:{eat:false, paid:false, free:false},  // "show all" per section
 };
 
 /* ---------------- Utilities ---------------- */
@@ -424,6 +467,9 @@ async function fetchPlaces(){
       lat, lon, distKm: haversineKm(state.center,{lat,lon}),
       website: tags.website || tags["contact:website"] || null,
       oh: tags.opening_hours || null,
+      fee: (tags.fee||"").toLowerCase() || null,
+      cuisines: tags.cuisine ? tags.cuisine.toLowerCase().split(";").map(s=>s.trim()).filter(Boolean) : [],
+      cuisineLabel: tags.cuisine ? prettifyCuisine(tags.cuisine.split(";")[0].trim()) : null,
     });
   }
   return out;
@@ -495,10 +541,35 @@ function scorePlace(p){
   if(p.website) s += 0.6;
   return s;
 }
-function computeTop(){
-  return visiblePlaces().map(p=>({p, s:scorePlace(p)}))
-    .sort((a,b)=> b.s-a.s || a.p.distKm-b.p.distKm)
-    .slice(0,10).map(x=>x.p);
+/* Free vs paid (activities). Restaurants/cafes/bars are dining — no free/paid tag.
+   Sets are exhaustive over non-meal kinds so every activity lands in one bucket. */
+const FREE_KINDS = new Set(["park","garden","viewpoint","artwork","historic","market","nature","attraction"]);
+const PAID_KINDS = new Set(["museum","gallery","themepark","zoo","aquarium","theatre","cinema","activity","casino","artscentre","nightclub"]);
+function placeCost(p){
+  if(p.fee==="no"||p.fee==="free") return "free";
+  if(p.fee==="yes") return "paid";
+  if(MEAL_KINDS.has(p.kind)) return null;
+  if(PAID_KINDS.has(p.kind)) return "paid";
+  if(FREE_KINDS.has(p.kind)) return "free";
+  return "free";
+}
+function prettifyCuisine(c){ return (c||"").replace(/_/g," ").replace(/\b\w/g,m=>m.toUpperCase()); }
+function collectCuisines(eat){
+  const map=new Map();
+  eat.forEach(p=>(p.cuisines||[]).forEach(c=>{ if(!map.has(c)) map.set(c, prettifyCuisine(c)); }));
+  return [...map.entries()].map(([value,label])=>({value,label})).sort((a,b)=>a.label.localeCompare(b.label));
+}
+/* Rank visible places by score, then split into Eat / Paid / Free buckets. */
+function rankedByCategory(){
+  const scored = visiblePlaces().map(p=>({p, s:scorePlace(p)}))
+    .sort((a,b)=> b.s-a.s || a.p.distKm-b.p.distKm).map(x=>x.p);
+  const eat=[], paid=[], free=[];
+  for(const p of scored){
+    if(MEAL_KINDS.has(p.kind)) eat.push(p);
+    else if(placeCost(p)==="paid") paid.push(p);
+    else free.push(p);
+  }
+  return {eat, paid, free};
 }
 
 /* ---------------- Active-filter summary ---------------- */
@@ -510,53 +581,90 @@ function renderActiveFilters(){
   node.innerHTML = `Tuned for: ` + sel.map(s=>`<b>${esc(s)}</b>`).join(", ");
 }
 
-/* ---------------- Render results LIST ---------------- */
+/* ---------------- Render results (3 sections) ---------------- */
+function rowHtml(p, rank){
+  const datesOn = state.selectedDates.size>0;
+  const st = placeStatus(p);
+  let openPill = "";
+  if(datesOn){
+    if(st.open===true) openPill = `<span class="tag open">✓ Open your dates</span>`;
+    else if(st.known && st.open===false) openPill = `<span class="tag closed">✕ Closed your dates</span>`;
+    else openPill = `<span class="tag unknown">Hours unknown</span>`;
+  }
+  const cost = placeCost(p);
+  const costPill = cost==="free" ? `<span class="tag free">Free</span>`
+                 : cost==="paid" ? `<span class="tag paid">Paid</span>` : "";
+  const cuisinePill = (MEAL_KINDS.has(p.kind) && p.cuisineLabel) ? `<span class="tag">${esc(p.cuisineLabel)}</span>` : "";
+  const inItin = state.itinerary.some(x=>x.id===p.id);
+  return `
+    <div class="row ${rank<=3?'top':''}">
+      <div class="rank">${rank}</div>
+      <div class="r-main">
+        <div class="r-name">${esc(p.name)}</div>
+        <div class="r-meta">
+          <span class="tag">${p.emoji} ${esc(p.kindLabel)}</span>
+          ${cuisinePill}${costPill}
+          <span class="dist">📍 ${fmtKm(p.distKm)} away</span>
+          ${openPill}
+        </div>
+      </div>
+      <div class="r-act">
+        <a class="mini" href="${osmLink(p.lat,p.lon)}" target="_blank" rel="noopener">🗺️ Map</a>
+        ${p.website?`<a class="mini" href="${esc(p.website)}" target="_blank" rel="noopener">🔗 Site</a>`:""}
+        <span class="mini ${inItin?'added':'add'}" data-add="${esc(p.id)}">${inItin?'✓ Added':'+ Add to day'}</span>
+      </div>
+    </div>`;
+}
+function sectionHtml(id, title, emoji, places, tools, emptyMsg){
+  const expanded = state.expand[id];
+  const shown = places.slice(0, expanded ? 15 : 5);
+  const rows = shown.length
+    ? shown.map((p,i)=>rowHtml(p,i+1)).join("")
+    : `<div class="sec-empty">${emptyMsg}</div>`;
+  const more = places.length>5
+    ? `<button class="btn ghost sm showmore" data-more="${id}">${expanded?"Show less":"Show all "+places.length}</button>`
+    : "";
+  return `<div class="section">
+      <div class="sec-head"><span class="sec-title">${emoji} ${title}</span><span class="sec-count">${places.length}</span>${tools||""}</div>
+      <div class="list">${rows}</div>${more}
+    </div>`;
+}
 function renderThings(){
   const body = document.getElementById("thingsBody");
   renderActiveFilters();
-  if(!state.center){ body.innerHTML = `<div class="empty">Enter where you are above and tap <b>Find things to do</b>.</div>`; return; }
-  if(!state.places.length){ body.innerHTML = `<div class="empty">No named spots found in this radius. Try widening the radius on the left, or a nearby city.</div>`; return; }
-  const top = computeTop();
-  if(!top.length){ body.innerHTML = `<div class="empty">Nothing is confirmed open on your selected days within this radius. Try unchecking “Only show places open on my dates”, picking other days, or widening the radius.</div>`; document.getElementById("resCount").textContent=""; return; }
-  const totalNote = filterActive() ? `${visiblePlaces().length} open on your dates` : `${state.places.length} nearby`;
-  document.getElementById("resCount").textContent = `Top ${top.length} of ${totalNote} · ${state.center.label}`;
-  const datesOn = state.selectedDates.size>0;
-  const list = document.createElement("div"); list.className="list";
-  top.forEach((p,i)=>{
-    const inItin = state.itinerary.some(x=>x.id===p.id);
-    const st = placeStatus(p);
-    let openPill = "";
-    if(datesOn){
-      if(st.open===true) openPill = `<span class="tag open">✓ Open your dates</span>`;
-      else if(st.known && st.open===false) openPill = `<span class="tag closed">✕ Closed your dates</span>`;
-      else openPill = `<span class="tag unknown">Hours unknown</span>`;
-    }
-    const row = el(`
-      <div class="row ${i<3?'top':''}">
-        <div class="rank">${i+1}</div>
-        <div class="r-main">
-          <div class="r-name">${esc(p.name)}</div>
-          <div class="r-meta">
-            <span class="tag">${p.emoji} ${esc(p.kindLabel)}</span>
-            <span class="dist">📍 ${fmtKm(p.distKm)} away</span>
-            ${openPill}
-          </div>
-        </div>
-        <div class="r-act">
-          <a class="mini" href="${osmLink(p.lat,p.lon)}" target="_blank" rel="noopener">🗺️ Map</a>
-          ${p.website?`<a class="mini" href="${esc(p.website)}" target="_blank" rel="noopener">🔗 Site</a>`:""}
-          <span class="mini ${inItin?'added':'add'}" data-add="${esc(p.id)}">${inItin?'✓ Added':'+ Add to day'}</span>
-        </div>
-      </div>`);
-    list.appendChild(row);
-  });
-  body.innerHTML=""; body.appendChild(list);
-  body.querySelectorAll("[data-add]").forEach(b=>{
-    b.addEventListener("click",()=>{
-      const p = top.find(x=>x.id===b.getAttribute("data-add"));
-      togglePlaceInItin(p); renderThings(); renderItin();
-    });
-  });
+  if(!state.center){ body.innerHTML = `<div class="empty">Enter where you are above and tap <b>Find things to do</b>.</div>`; document.getElementById("resCount").textContent=""; return; }
+  if(!state.places.length){ body.innerHTML = `<div class="empty">No named spots found in this radius. Try widening the radius on the left, or a nearby city.</div>`; document.getElementById("resCount").textContent=""; return; }
+
+  const {eat, paid, free} = rankedByCategory();
+  const cuisineOpts = collectCuisines(eat);
+  const eatShown = state.cuisine==="all" ? eat : eat.filter(p=>p.cuisines.includes(state.cuisine));
+
+  const datesNote = filterActive() ? " (open on your dates)" : "";
+  document.getElementById("resCount").textContent =
+    `${state.center.label}${datesNote} · ${eat.length} to eat · ${paid.length} paid · ${free.length} free`;
+
+  let cuisineTools = "";
+  if(cuisineOpts.length){
+    const opts = [`<option value="all"${state.cuisine==="all"?" selected":""}>All cuisines</option>`]
+      .concat(cuisineOpts.map(c=>`<option value="${esc(c.value)}"${state.cuisine===c.value?" selected":""}>${esc(c.label)}</option>`)).join("");
+    cuisineTools = `<div class="sec-tools"><select class="cuisine-sel" id="cuisineSel" aria-label="Filter restaurants by cuisine">${opts}</select></div>`;
+  }
+  const eatEmpty = (state.cuisine!=="all") ? "No spots match that cuisine here — try “All cuisines”." : "No places to eat found nearby.";
+
+  body.innerHTML =
+    sectionHtml("eat","Places to eat","🍽️", eatShown, cuisineTools, eatEmpty) +
+    sectionHtml("paid","Paid activities","🎟️", paid, "", "No paid activities found within your filters.") +
+    sectionHtml("free","Free activities","🆓", free, "", "No free activities found within your filters.");
+
+  body.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click",()=>{
+    const p = state.places.find(x=>x.id===b.getAttribute("data-add"));
+    if(p){ togglePlaceInItin(p); renderThings(); renderItin(); }
+  }));
+  body.querySelectorAll("[data-more]").forEach(b=>b.addEventListener("click",()=>{
+    const k=b.getAttribute("data-more"); state.expand[k]=!state.expand[k]; renderThings();
+  }));
+  const cs = body.querySelector("#cuisineSel");
+  if(cs) cs.addEventListener("change",()=>{ state.cuisine=cs.value; renderThings(); });
 }
 
 /* ---------------- Day plan ---------------- */
@@ -564,16 +672,17 @@ function toItin(p){
   return {id:p.id, name:p.name, kind:p.kind, kindLabel:p.kindLabel, emoji:p.emoji,
     lat:p.lat, lon:p.lon, url:p.website, isMeal:MEAL_KINDS.has(p.kind)};
 }
-/* Build a sensible recommended day from the current ranked results:
-   a handful of top highlights plus a lunch spot, ordered later by buildSchedule. */
+/* Build a balanced recommended day: top paid + free activities and a lunch spot,
+   ordered later by buildSchedule. */
 function buildRecommended(){
-  const top = computeTop();
-  if(!top.length) return [];
-  const meals = top.filter(p=>MEAL_KINDS.has(p.kind));
-  const highlights = top.filter(p=>!MEAL_KINDS.has(p.kind)).slice(0,5);
-  const picks = highlights.slice();
-  if(meals.length) picks.splice(Math.min(2,picks.length),0,meals[0]); // drop a lunch spot mid-day
-  return picks.map(toItin);
+  const {eat, paid, free} = rankedByCategory();
+  const picks = [];
+  paid.slice(0,2).forEach(p=>picks.push(p));
+  free.slice(0,2).forEach(p=>picks.push(p));
+  if(eat.length) picks.splice(Math.min(2,picks.length),0,eat[0]); // lunch mid-day
+  const seen=new Set(), uniq=[];
+  for(const p of picks){ if(!seen.has(p.id)){ seen.add(p.id); uniq.push(p); } }
+  return uniq.map(toItin);
 }
 function recommendDay(){
   state.itinerary = buildRecommended();
