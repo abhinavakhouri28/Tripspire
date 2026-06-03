@@ -52,6 +52,27 @@
   .hint{font-size:12.5px;color:var(--muted)}
   .err{background:rgba(244,99,46,.10);border:1px solid rgba(244,99,46,.45);color:#b23a14;padding:11px 13px;border-radius:11px;font-size:13px}
 
+  /* AUTOCOMPLETE DROPDOWN */
+  .acwrap{flex:1 1 300px;position:relative}
+  .acwrap .field{width:100%}
+  .ac{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--bg2);border:1px solid var(--line);
+    border-radius:12px;box-shadow:var(--shadow);z-index:40;overflow:hidden;max-height:320px;overflow-y:auto}
+  .ac[hidden]{display:none}
+  .ac-head{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);padding:10px 13px 4px}
+  .ac-item{display:flex;align-items:center;gap:11px;padding:11px 13px;cursor:pointer;font-size:14px;color:var(--ink);border-top:1px solid var(--line)}
+  .ac-head + .ac-item{border-top:0}
+  .ac-item:hover,.ac-item.active{background:var(--input)}
+  .ac-item .ac-ic{font-size:16px;opacity:.75;width:20px;text-align:center;flex:none}
+  .ac-item .ac-txt{min-width:0}
+  .ac-item .ac-main{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ac-item .ac-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ac-msg{padding:12px 13px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:9px}
+
+  /* day-plan controls */
+  .day-acts{display:flex;gap:8px;flex-wrap:wrap}
+  .day-note{font-size:12.5px;color:var(--muted);margin:2px 0 14px}
+  .day-note b{color:var(--brand2)}
+
   /* LAYOUT: sidebar + main */
   .layout{display:grid;grid-template-columns:248px 1fr;gap:18px;align-items:start}
   .sidebar{position:sticky;top:18px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
@@ -152,9 +173,12 @@
   <section class="search">
     <p class="lbl">Where are you? Enter a ZIP code, a city, or use your location.</p>
     <div class="locrow">
-      <div class="field">
-        <span class="ic">📍</span>
-        <input id="loc" type="text" placeholder="e.g. 94103, Austin TX, or Brooklyn" autocomplete="off" />
+      <div class="acwrap">
+        <div class="field">
+          <span class="ic">📍</span>
+          <input id="loc" type="text" placeholder="Start typing a city, area, or ZIP…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" />
+        </div>
+        <div class="ac" id="ac" hidden></div>
       </div>
       <button class="btn ghost" id="geoBtn" title="Use my current location">🛰️ Use my location</button>
       <button class="btn primary" id="goBtn">Find things to do →</button>
@@ -190,9 +214,13 @@
       <section class="panel">
         <div class="toprow">
           <h2>My day plan</h2>
-          <button class="btn ghost sm" id="clearItin" style="display:none">Clear plan</button>
+          <div class="day-acts" id="dayActs" style="display:none">
+            <button class="btn ghost sm" id="recBtn">↻ Recommend again</button>
+            <button class="btn ghost sm" id="clearItin">Clear plan</button>
+          </div>
         </div>
-        <div id="itinBody"><div class="day-empty">Tap <b>+ Add to day</b> on anything you like, and I'll order it into a simple plan with travel times.</div></div>
+        <div class="day-note" id="dayNote"></div>
+        <div id="itinBody"><div class="day-empty">Find a place above and I'll suggest a ready-made day — then add, remove, or reorder anything you like.</div></div>
       </section>
     </div>
   </div>
@@ -289,6 +317,7 @@ const state = {
   center:null, radiusM:5000,
   selectedTypes:new Set(),
   places:[], itinerary:[],
+  planMode:"recommended",   // "recommended" (auto) | "custom" (user edited)
 };
 
 /* ---------------- Utilities ---------------- */
@@ -428,11 +457,31 @@ function renderThings(){
 }
 
 /* ---------------- Day plan ---------------- */
+function toItin(p){
+  return {id:p.id, name:p.name, kind:p.kind, kindLabel:p.kindLabel, emoji:p.emoji,
+    lat:p.lat, lon:p.lon, url:p.website, isMeal:MEAL_KINDS.has(p.kind)};
+}
+/* Build a sensible recommended day from the current ranked results:
+   a handful of top highlights plus a lunch spot, ordered later by buildSchedule. */
+function buildRecommended(){
+  const top = computeTop();
+  if(!top.length) return [];
+  const meals = top.filter(p=>MEAL_KINDS.has(p.kind));
+  const highlights = top.filter(p=>!MEAL_KINDS.has(p.kind)).slice(0,5);
+  const picks = highlights.slice();
+  if(meals.length) picks.splice(Math.min(2,picks.length),0,meals[0]); // drop a lunch spot mid-day
+  return picks.map(toItin);
+}
+function recommendDay(){
+  state.itinerary = buildRecommended();
+  state.planMode = "recommended";
+  renderItin();
+}
 function togglePlaceInItin(p){
   const i = state.itinerary.findIndex(x=>x.id===p.id);
-  if(i>=0){ state.itinerary.splice(i,1); return; }
-  state.itinerary.push({id:p.id, name:p.name, kind:p.kind, kindLabel:p.kindLabel, emoji:p.emoji,
-    lat:p.lat, lon:p.lon, url:p.website, isMeal:MEAL_KINDS.has(p.kind)});
+  if(i>=0){ state.itinerary.splice(i,1); }
+  else { state.itinerary.push(toItin(p)); }
+  state.planMode = "custom";   // any manual change makes it the user's own plan
 }
 function buildSchedule(){
   const ordered = [];
@@ -471,11 +520,19 @@ function fmtClock(min){
 }
 function renderItin(){
   const body = document.getElementById("itinBody");
-  document.getElementById("clearItin").style.display = state.itinerary.length ? "" : "none";
+  const note = document.getElementById("dayNote");
+  const acts = document.getElementById("dayActs");
+  acts.style.display = state.itinerary.length ? "" : "none";
   if(!state.itinerary.length){
-    body.innerHTML = `<div class="day-empty">Tap <b>+ Add to day</b> on anything you like, and I'll order it into a simple plan with travel times.</div>`;
+    note.innerHTML = "";
+    body.innerHTML = state.center
+      ? `<div class="day-empty">Your plan is empty. Tap <b>↻ Recommend again</b> for a suggested day, or <b>+ Add to day</b> on any spot above.</div>`
+      : `<div class="day-empty">Find a place above and I'll suggest a ready-made day — then add, remove, or reorder anything you like.</div>`;
     return;
   }
+  note.innerHTML = state.planMode==="recommended"
+    ? `<b>✨ Recommended for you</b> — a suggested day based on your picks. Add, remove, or clear it to make it yours.`
+    : `<b>Your custom plan</b> — edited by you. Tap “Recommend again” to start over from a suggestion.`;
   const sched = buildSchedule();
   const wrap = document.createElement("div"); wrap.className="itin";
   sched.forEach(s=>{
@@ -549,6 +606,7 @@ async function runDiscovery(){
     state.places = await fetchPlaces();
     setStatus(`Showing results for <b>${esc(state.center.label)}</b> · ${state.places.length} places within ${state.radiusM/1000} km.`);
     renderThings();
+    recommendDay();   // start them off with a ready-made day they can override
   }catch(e){
     setStatus(e.message,true);
     document.getElementById("thingsBody").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
@@ -567,10 +625,87 @@ function useMyLocation(){
   }, err=>{ setStatus("Couldn't get your location ("+err.message+"). Type a ZIP or city instead.", true); },
   {enableHighAccuracy:true, timeout:10000});
 }
+/* ---------------- Location autocomplete ---------------- */
+const POPULAR = [
+  {ic:"🗽", main:"New York, NY",      q:"New York, New York"},
+  {ic:"🌉", main:"San Francisco, CA", q:"San Francisco, California"},
+  {ic:"🎸", main:"Austin, TX",        q:"Austin, Texas"},
+  {ic:"🌆", main:"Chicago, IL",       q:"Chicago, Illinois"},
+  {ic:"🎷", main:"New Orleans, LA",   q:"New Orleans, Louisiana"},
+  {ic:"🏔️", main:"Denver, CO",        q:"Denver, Colorado"},
+];
+let acTimer=null, acList=[], acActive=-1, acOpen=false;
+
+function acEl(){ return document.getElementById("ac"); }
+function hideAc(){ const a=acEl(); a.hidden=true; acOpen=false; acActive=-1; document.getElementById("loc").setAttribute("aria-expanded","false"); }
+function shortFrom(o){
+  const a=o.address||{};
+  const main = a.city||a.town||a.village||a.suburb||a.hamlet||a.neighbourhood||a.county||o.name||(o.display_name||"").split(",")[0];
+  const sub = [a.state, a.country].filter(Boolean).join(", ") || (o.display_name||"").split(",").slice(1,3).join(",").trim();
+  return {main, sub};
+}
+function renderAc(){
+  const a=acEl();
+  if(!acList.length){ hideAc(); return; }
+  a.innerHTML="";
+  acList.forEach((it,idx)=>{
+    if(it.head){ a.appendChild(el(`<div class="ac-head">${esc(it.head)}</div>`)); return; }
+    const row=el(`<div class="ac-item ${idx===acActive?'active':''}" data-i="${idx}">
+        <span class="ac-ic">${it.ic||"📍"}</span>
+        <span class="ac-txt"><div class="ac-main">${esc(it.main)}</div>${it.sub?`<div class="ac-sub">${esc(it.sub)}</div>`:""}</span>
+      </div>`);
+    row.addEventListener("mousedown", e=>{ e.preventDefault(); chooseAc(idx); });
+    a.appendChild(row);
+  });
+  a.hidden=false; acOpen=true;
+  document.getElementById("loc").setAttribute("aria-expanded","true");
+}
+function showPopular(){
+  acList = [{head:"Popular destinations"}].concat(POPULAR.map(p=>({ic:p.ic,main:p.main,sub:"United States",q:p.q})));
+  acActive=-1; renderAc();
+}
+async function fetchSuggestions(q){
+  try{
+    const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&q=${encodeURIComponent(q)}`;
+    const r=await fetch(url,{headers:{"Accept-Language":"en"}});
+    const j=await r.json();
+    acList=(j||[]).map(o=>{ const s=shortFrom(o); return {ic:"📍", main:s.main, sub:s.sub, lat:+o.lat, lon:+o.lon}; });
+    acActive=-1;
+    if(!acList.length){ acEl().innerHTML=`<div class="ac-msg">No matches — try a different spelling or a ZIP code.</div>`; acEl().hidden=false; acOpen=true; return; }
+    renderAc();
+  }catch(e){ hideAc(); }
+}
+async function chooseAc(i){
+  const it=acList[i]; if(!it||it.head) return;
+  document.getElementById("loc").value = it.main;
+  hideAc();
+  if(it.lat!=null){ state.center={lat:it.lat,lon:it.lon,label:it.main}; await runDiscovery(); }
+  else if(it.q){ setStatus(`<span class="spin"></span> Locating ${esc(it.main)}…`); try{ state.center=await geocode(it.q); await runDiscovery(); }catch(e){ setStatus(e.message,true); } }
+}
+
+/* ---------------- Wiring (events) ---------------- */
 function initEvents(){
-  document.getElementById("goBtn").addEventListener("click", discover);
-  document.getElementById("loc").addEventListener("keydown", e=>{ if(e.key==="Enter") discover(); });
-  document.getElementById("geoBtn").addEventListener("click", useMyLocation);
+  document.getElementById("goBtn").addEventListener("click", ()=>{ hideAc(); discover(); });
+  document.getElementById("geoBtn").addEventListener("click", ()=>{ hideAc(); useMyLocation(); });
+  document.getElementById("recBtn").addEventListener("click", recommendDay);
+
+  const loc=document.getElementById("loc");
+  loc.addEventListener("input",()=>{
+    const q=loc.value.trim(); clearTimeout(acTimer);
+    if(!q){ showPopular(); return; }
+    if(q.length<3){ hideAc(); return; }
+    acTimer=setTimeout(()=>fetchSuggestions(q), 300);
+  });
+  loc.addEventListener("focus",()=>{ if(!loc.value.trim()) showPopular(); });
+  loc.addEventListener("keydown", e=>{
+    const idxs=acList.map((it,i)=>it.head?null:i).filter(i=>i!==null);
+    if(e.key==="ArrowDown" && acOpen && idxs.length){ e.preventDefault(); const pos=idxs.indexOf(acActive); acActive=idxs[Math.min(pos+1, idxs.length-1)]; if(pos<0) acActive=idxs[0]; renderAc(); }
+    else if(e.key==="ArrowUp" && acOpen && idxs.length){ e.preventDefault(); const pos=idxs.indexOf(acActive); acActive= pos<=0 ? idxs[0] : idxs[pos-1]; renderAc(); }
+    else if(e.key==="Enter"){ if(acOpen && acActive>=0){ e.preventDefault(); chooseAc(acActive); } else { hideAc(); discover(); } }
+    else if(e.key==="Escape"){ hideAc(); }
+  });
+  document.addEventListener("click", e=>{ if(!e.target.closest(".acwrap")) hideAc(); });
+
   const rad=document.getElementById("radius");
   rad.addEventListener("input",()=>{ document.getElementById("radiusVal").textContent = rad.value+" km"; });
   document.getElementById("clearFilters").addEventListener("click",()=>{
@@ -579,7 +714,7 @@ function initEvents(){
     if(state.places.length) renderThings(); else renderActiveFilters();
   });
   document.getElementById("clearItin").addEventListener("click",()=>{
-    state.itinerary=[]; renderItin(); renderThings();
+    state.itinerary=[]; state.planMode="custom"; renderItin(); renderThings();
   });
 }
 
