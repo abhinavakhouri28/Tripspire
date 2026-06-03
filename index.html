@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tripspire — Discover Your Next Adventure</title>
+<style>
+  :root{
+    --bg:#eef0f8; --bg2:#ffffff; --card:#ffffff; --card2:#f5f6fc;
+    --ink:#1b1d33; --ink2:#2c2f4d; --muted:#646a8a; --line:#e3e4f0;
+    --brand:#6c4cff; --brand-soft:#8f76ff; --brand2:#0e9b8a; --accent:#f4632e; --good:#16a34a;
+    --input:#f2f3fb; --input-line:#dcdeee;
+    --shadow:0 8px 24px rgba(40,44,90,.10);
+    --r:16px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1100px 560px at 82% -12%, rgba(108,76,255,.12) 0%, transparent 55%),
+               radial-gradient(900px 520px at -10% 8%, rgba(14,155,138,.12) 0%, transparent 52%),
+               var(--bg);
+    color:var(--ink); line-height:1.45; min-height:100vh;
+  }
+  a{color:var(--brand2)}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 18px 80px}
+  header.app{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  .logo{display:flex;align-items:center;gap:12px}
+  .logo .mark{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--brand),var(--brand2));
+    display:grid;place-items:center;font-size:24px;box-shadow:var(--shadow);color:#fff}
+  .logo h1{font-size:24px;margin:0;letter-spacing:-.5px}
+  .logo .tag{font-size:12.5px;color:var(--muted);margin-top:-2px}
+  .pill{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--brand2);
+    border:1px solid var(--line);padding:5px 10px;border-radius:999px;background:rgba(14,155,138,.08);font-weight:600}
+  .panel{background:var(--bg2);border:1px solid var(--line);
+    border-radius:var(--r);padding:18px;box-shadow:var(--shadow);margin-bottom:18px}
+  .panel h2{margin:0 0 4px;font-size:15px;letter-spacing:.3px}
+  .panel .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .step{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;
+    background:var(--brand);color:#fff;font-size:12px;font-weight:700;margin-right:8px;vertical-align:-2px}
+
+  /* location row */
+  .locrow{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+  .field{flex:1 1 280px;display:flex;align-items:center;gap:8px;background:var(--input);border:1px solid var(--input-line);
+    border-radius:12px;padding:0 12px}
+  .field input{flex:1;background:transparent;border:0;outline:0;color:var(--ink);font-size:15px;padding:14px 0}
+  .field .ic{font-size:17px;opacity:.8}
+  .btn{border:0;border-radius:12px;padding:13px 18px;font-size:14px;font-weight:600;cursor:pointer;
+    transition:transform .06s ease, filter .15s ease}
+  .btn:active{transform:translateY(1px)}
+  .btn:hover{filter:brightness(1.03)}
+  .btn.primary{background:linear-gradient(135deg,var(--brand),var(--brand-soft));color:#fff}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--input-line)}
+  .btn.accent{background:linear-gradient(135deg,var(--accent),#ff8a5f);color:#fff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .hint{font-size:12px;color:var(--muted);margin-top:10px}
+  .radius{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-top:12px;flex-wrap:wrap}
+  .radius input[type=range]{accent-color:var(--brand)}
+
+  /* filters */
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{border:1px solid var(--input-line);background:var(--input);color:var(--ink);padding:9px 13px;border-radius:999px;
+    font-size:13px;cursor:pointer;display:flex;align-items:center;gap:7px;user-select:none;transition:.12s}
+  .chip .e{font-size:15px}
+  .chip.on{background:linear-gradient(135deg,rgba(108,76,255,.14),rgba(14,155,138,.12));
+    border-color:var(--brand);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(108,76,255,.35)}
+
+  /* results grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:9px;position:relative;box-shadow:0 3px 10px rgba(40,44,90,.05)}
+  .card .cat{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--brand2);font-weight:700}
+  .card .nm{font-weight:650;font-size:15px;line-height:1.25}
+  .card .meta{font-size:12.5px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
+  .card .row{display:flex;gap:8px;margin-top:auto;flex-wrap:wrap}
+  .card .mini{font-size:12px;padding:7px 10px;border-radius:9px;text-decoration:none;border:1px solid var(--input-line);background:var(--input);color:var(--ink);cursor:pointer}
+  .card .mini:hover{border-color:var(--brand)}
+  .card .mini.add{background:rgba(22,163,74,.10);border-color:rgba(22,163,74,.4);color:#0f7a3a}
+  .card .mini.added{background:rgba(22,163,74,.22);color:#0c5e2d;border-color:rgba(22,163,74,.55)}
+  .rank{position:absolute;top:-9px;left:-9px;width:26px;height:26px;border-radius:50%;background:var(--accent);
+    color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;box-shadow:var(--shadow)}
+
+  .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .tab{padding:9px 14px;border-radius:10px;border:1px solid var(--input-line);background:var(--input);cursor:pointer;font-size:13px;color:var(--muted)}
+  .tab.on{color:var(--ink);border-color:var(--brand);background:rgba(108,76,255,.10);font-weight:600}
+
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px 10px}
+  .loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px;padding:14px 0}
+  .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .err{background:rgba(244,99,46,.10);border:1px solid rgba(244,99,46,.45);color:#b23a14;padding:11px 13px;border-radius:11px;font-size:13px;margin-top:10px}
+
+  /* itinerary */
+  .itin{display:flex;flex-direction:column;gap:0}
+  .slot{display:grid;grid-template-columns:78px 1fr;gap:14px;padding:14px 0;border-bottom:1px dashed var(--line)}
+  .slot:last-child{border-bottom:0}
+  .slot .time{font-weight:700;color:var(--brand2);font-size:14px}
+  .slot .time small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+  .slot .what{font-weight:600}
+  .slot .det{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .slot .links{margin-top:7px;display:flex;gap:8px;flex-wrap:wrap}
+  .travel{font-size:11.5px;color:var(--muted);padding:3px 0 3px 92px;display:flex;align-items:center;gap:6px}
+  .ksel{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .tmkey{flex:1 1 240px;background:var(--input);border:1px solid var(--input-line);border-radius:11px;padding:11px 12px;color:var(--ink);font-size:13px;outline:0}
+  .note{font-size:12px;color:var(--muted)}
+  .footer{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
+  .badge-tbd{display:inline-block;background:rgba(244,99,46,.12);border:1px solid rgba(244,99,46,.4);color:#b23a14;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:6px;font-weight:600}
+  .toprow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .count{font-size:12.5px;color:var(--muted)}
+  @media (max-width:540px){ .slot{grid-template-columns:64px 1fr} .travel{padding-left:78px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <div class="logo">
+      <div class="mark">🧭</div>
+      <div>
+        <h1>Tripspire</h1>
+        <div class="tag">Discover Your Next Adventure.</div>
+      </div>
+    </div>
+    <span class="pill">Phase 0 · Live Demo</span>
+  </header>
+
+  <!-- STEP 1: LOCATION -->
+  <section class="panel">
+    <h2><span class="step">1</span>Where are you headed?</h2>
+    <p class="sub">Enter a ZIP code, a city name, or use your current location. Tripspire finds what's around you in seconds.</p>
+    <div class="locrow">
+      <div class="field">
+        <span class="ic">📍</span>
+        <input id="loc" type="text" placeholder="e.g. 94103, Austin TX, or Brooklyn" autocomplete="off" />
+      </div>
+      <button class="btn ghost" id="geoBtn" title="Use my current location">🛰️ Use my location</button>
+      <button class="btn primary" id="goBtn">Discover →</button>
+    </div>
+    <div class="radius">
+      <span>Search radius:</span>
+      <input id="radius" type="range" min="1" max="15" value="5" step="1" />
+      <span id="radiusVal">5 km</span>
+    </div>
+    <div id="locStatus"></div>
+  </section>
+
+  <!-- STEP 2: TRAVELER FILTERS -->
+  <section class="panel">
+    <h2><span class="step">2</span>Who's traveling?</h2>
+    <p class="sub">Pick a style (or a few) and Tripspire reweights everything to match. This is the core differentiator: <em>tell us who you're with, we build the trip.</em></p>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <!-- STEP 3: RESULTS -->
+  <section class="panel">
+    <div class="toprow">
+      <h2 style="margin:0"><span class="step">3</span>Discover</h2>
+      <span class="count" id="resCount"></span>
+    </div>
+    <div class="tabs" id="tabs" style="margin-top:12px">
+      <div class="tab on" data-tab="things">🎯 Top Things To Do</div>
+      <div class="tab" data-tab="events">🎟️ Local Events</div>
+    </div>
+
+    <div id="thingsPane">
+      <div id="thingsBody"><div class="empty">Enter a location above and hit <b>Discover</b> to see the top things to do nearby.</div></div>
+    </div>
+
+    <div id="eventsPane" style="display:none">
+      <div class="ksel">
+        <input class="tmkey" id="tmKey" type="text" placeholder="Paste a free Ticketmaster API key for live events (optional)" />
+        <button class="btn ghost" id="tmBtn">Load events</button>
+      </div>
+      <p class="note">Live events use the free <a href="https://developer.ticketmaster.com/" target="_blank" rel="noopener">Ticketmaster Discovery API</a>. Get a key in ~2 min, paste it once, and Tripspire pulls real concerts, sports, festivals and shows happening near your dates. Without a key, discovery still works fully on attractions &amp; venues.</p>
+      <div id="eventsBody"><div class="empty">Discover a location first, then load events.</div></div>
+    </div>
+  </section>
+
+  <!-- STEP 4: ITINERARY -->
+  <section class="panel">
+    <div class="toprow">
+      <h2 style="margin:0"><span class="step">4</span>Your Auto-Itinerary</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn ghost" id="clearItin">Clear</button>
+        <button class="btn accent" id="dlBtn">⬇ Download (.ics)</button>
+      </div>
+    </div>
+    <p class="sub">Add anything from Discover or Events, and Tripspire orders your day, slots in meals, and estimates travel time between stops — with booking &amp; map links built in.</p>
+    <div id="itinBody"><div class="empty">No stops yet. Tap <b>+ Add</b> on any result to start building your day.</div></div>
+  </section>
+
+  <div class="footer">
+    Tripspire · Phase 0 working demo · Pricing model <span class="badge-tbd">TBD</span><br/>
+    Live data: OpenStreetMap (Nominatim &amp; Overpass) · Ticketmaster Discovery · Map links via OpenStreetMap
+  </div>
+</div>
+
+<script>
+/* ---------------- Traveler-type model ---------------- */
+const TRAVELER_TYPES = [
+  {id:"solo",     label:"Solo",            e:"🎒"},
+  {id:"couples",  label:"Couples",         e:"💞"},
+  {id:"family",   label:"Family",          e:"👨‍👩‍👧"},
+  {id:"kids",     label:"With Kids",       e:"🧸"},
+  {id:"friends",  label:"Friends",         e:"🥳"},
+  {id:"business", label:"Business",        e:"💼"},
+  {id:"adventure",label:"Adventure",       e:"⛰️"},
+  {id:"food",     label:"Food & Culture",  e:"🍜"},
+];
+
+/* Each POI "kind" gets a base score + per-traveler-type weights.
+   kind is derived from OSM tags. */
+const KIND_WEIGHTS = {
+  // kind: {base, solo, couples, family, kids, friends, business, adventure, food}
+  museum:        {base:6, solo:3, couples:2, family:2, kids:1, friends:1, business:2, adventure:0, food:1},
+  gallery:       {base:5, solo:3, couples:3, family:1, kids:0, friends:1, business:1, adventure:0, food:1},
+  attraction:    {base:6, solo:2, couples:2, family:2, kids:2, friends:2, business:1, adventure:1, food:0},
+  viewpoint:     {base:5, solo:3, couples:3, family:1, kids:1, friends:2, business:1, adventure:3, food:0},
+  artwork:       {base:3, solo:2, couples:2, family:1, kids:1, friends:1, business:0, adventure:0, food:0},
+  themepark:     {base:7, solo:1, couples:2, family:3, kids:3, friends:3, business:0, adventure:3, food:0},
+  zoo:           {base:6, solo:1, couples:2, family:3, kids:3, friends:1, business:0, adventure:1, food:0},
+  park:          {base:5, solo:2, couples:2, family:3, kids:3, friends:2, business:1, adventure:2, food:0},
+  garden:        {base:4, solo:2, couples:3, family:2, kids:1, friends:1, business:1, adventure:0, food:0},
+  theatre:       {base:5, solo:1, couples:3, family:1, kids:1, friends:2, business:2, adventure:0, food:0},
+  cinema:        {base:4, solo:1, couples:2, family:2, kids:2, friends:3, business:0, adventure:0, food:0},
+  nightclub:     {base:4, solo:1, couples:1, family:0, kids:0, friends:3, business:1, adventure:1, food:0},
+  bar:           {base:4, solo:2, couples:2, family:0, kids:0, friends:3, business:2, adventure:0, food:2},
+  restaurant:    {base:6, solo:2, couples:3, family:2, kids:1, friends:2, business:3, adventure:0, food:3},
+  cafe:          {base:4, solo:3, couples:2, family:1, kids:1, friends:2, business:2, adventure:0, food:2},
+  historic:      {base:5, solo:3, couples:2, family:2, kids:1, friends:1, business:1, adventure:1, food:0},
+  sports:        {base:4, solo:1, couples:1, family:2, kids:2, friends:3, business:1, adventure:3, food:0},
+  aquarium:      {base:6, solo:1, couples:2, family:3, kids:3, friends:1, business:0, adventure:1, food:0},
+};
+const MEAL_KINDS = new Set(["restaurant","cafe","bar"]);
+
+/* Overpass query — pull a broad set of named POIs around a point */
+function overpassQuery(lat, lon, radiusM){
+  return `[out:json][timeout:25];
+(
+  node["tourism"~"attraction|museum|gallery|viewpoint|artwork|theme_park|zoo|aquarium"](around:${radiusM},${lat},${lon});
+  way["tourism"~"attraction|museum|gallery|viewpoint|theme_park|zoo|aquarium"](around:${radiusM},${lat},${lon});
+  node["historic"](around:${radiusM},${lat},${lon});
+  node["leisure"~"park|garden"](around:${radiusM},${lat},${lon});
+  way["leisure"~"park|garden"](around:${radiusM},${lat},${lon});
+  node["amenity"~"restaurant|cafe|bar|theatre|cinema|nightclub"](around:${radiusM},${lat},${lon});
+);
+out center 200;`;
+}
+
+function deriveKind(tags){
+  if(!tags) return null;
+  const t = tags.tourism, a = tags.amenity, l = tags.leisure;
+  if(t==="museum") return "museum";
+  if(t==="gallery") return "gallery";
+  if(t==="viewpoint") return "viewpoint";
+  if(t==="artwork") return "artwork";
+  if(t==="theme_park") return "themepark";
+  if(t==="zoo") return "zoo";
+  if(t==="aquarium") return "aquarium";
+  if(t==="attraction") return "attraction";
+  if(l==="park") return "park";
+  if(l==="garden") return "garden";
+  if(a==="theatre") return "theatre";
+  if(a==="cinema") return "cinema";
+  if(a==="nightclub") return "nightclub";
+  if(a==="bar"||a==="pub") return "bar";
+  if(a==="restaurant") return "restaurant";
+  if(a==="cafe") return "cafe";
+  if(tags.historic) return "historic";
+  return null;
+}
+const KIND_LABEL = {
+  museum:"Museum", gallery:"Gallery", attraction:"Attraction", viewpoint:"Scenic Viewpoint",
+  artwork:"Public Art", themepark:"Theme Park", zoo:"Zoo", aquarium:"Aquarium", park:"Park",
+  garden:"Garden", theatre:"Theatre", cinema:"Cinema", nightclub:"Nightlife", bar:"Bar / Pub",
+  restaurant:"Restaurant", cafe:"Café", historic:"Historic Site", sports:"Sports & Recreation"
+};
+const KIND_EMOJI = {
+  museum:"🏛️", gallery:"🖼️", attraction:"⭐", viewpoint:"🌄", artwork:"🎨", themepark:"🎢",
+  zoo:"🦁", aquarium:"🐠", park:"🌳", garden:"🌷", theatre:"🎭", cinema:"🎬", nightclub:"🪩",
+  bar:"🍻", restaurant:"🍽️", cafe:"☕", historic:"🏰", sports:"🏟️"
+};
+
+/* ---------------- State ---------------- */
+const state = {
+  center:null,       // {lat, lon, label}
+  radiusM:5000,
+  selectedTypes:new Set(),
+  places:[],         // scored POIs
+  events:[],
+  itinerary:[],      // chosen items {id,name,kind,lat,lon,kindLabel,url,type:'place'|'event',time?}
+};
+
+/* ---------------- Utilities ---------------- */
+function haversineKm(a,b){
+  const R=6371, toR=x=>x*Math.PI/180;
+  const dLat=toR(b.lat-a.lat), dLon=toR(b.lon-a.lon);
+  const s=Math.sin(dLat/2)**2+Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function fmtKm(km){ return km<1 ? Math.round(km*1000)+" m" : km.toFixed(1)+" km"; }
+function osmLink(lat,lon,name){ return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`; }
+function el(html){ const d=document.createElement("div"); d.innerHTML=html.trim(); return d.firstChild; }
+function esc(s){ return (s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------------- Geocoding ---------------- */
+async function geocode(input){
+  const q = input.trim();
+  if(/^\d{5}$/.test(q)){
+    // US ZIP via Zippopotam (no key)
+    try{
+      const r = await fetch(`https://api.zippopotam.us/us/${q}`);
+      if(r.ok){
+        const j = await r.json();
+        const p = j.places && j.places[0];
+        if(p) return {lat:+p.latitude, lon:+p.longitude, label:`${p["place name"]}, ${p["state abbreviation"]} ${q}`};
+      }
+    }catch(e){}
+  }
+  // Fallback / city search via Nominatim
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`;
+  const r = await fetch(url, {headers:{"Accept-Language":"en"}});
+  const j = await r.json();
+  if(j && j.length){
+    return {lat:+j[0].lat, lon:+j[0].lon, label:j[0].display_name.split(",").slice(0,3).join(",")};
+  }
+  throw new Error("Couldn't find that location. Try a ZIP code or 'City, State'.");
+}
+async function reverseGeocode(lat,lon){
+  try{
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`,{headers:{"Accept-Language":"en"}});
+    const j = await r.json();
+    const a = j.address||{};
+    const city = a.city||a.town||a.village||a.suburb||a.county||"";
+    return [city, a.state, a.postcode].filter(Boolean).join(", ") || "Your location";
+  }catch(e){ return "Your location"; }
+}
+
+/* ---------------- Fetch places ---------------- */
+async function fetchPlaces(){
+  const q = overpassQuery(state.center.lat, state.center.lon, state.radiusM);
+  const r = await fetch("https://overpass-api.de/api/interpreter", {
+    method:"POST", body:"data="+encodeURIComponent(q),
+    headers:{"Content-Type":"application/x-www-form-urlencoded"}
+  });
+  if(!r.ok) throw new Error("Live places service is busy. Wait a few seconds and try again.");
+  const j = await r.json();
+  const seen = new Set();
+  const out = [];
+  for(const elm of (j.elements||[])){
+    const tags = elm.tags||{};
+    const name = tags.name;
+    if(!name) continue;
+    const kind = deriveKind(tags);
+    if(!kind) continue;
+    const lat = elm.lat ?? (elm.center && elm.center.lat);
+    const lon = elm.lon ?? (elm.center && elm.center.lon);
+    if(lat==null||lon==null) continue;
+    const key = name.toLowerCase()+"|"+kind;
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      id: elm.type+"/"+elm.id, name, kind,
+      kindLabel: KIND_LABEL[kind], emoji: KIND_EMOJI[kind]||"📌",
+      lat, lon,
+      distKm: haversineKm(state.center,{lat,lon}),
+      website: tags.website || tags["contact:website"] || null,
+      phone: tags.phone || tags["contact:phone"] || null,
+      tags
+    });
+  }
+  return out;
+}
+
+/* ---------------- Scoring & Top 10 ---------------- */
+function scorePlace(p){
+  const w = KIND_WEIGHTS[p.kind];
+  if(!w) return 0;
+  let s = w.base;
+  const types = [...state.selectedTypes];
+  if(types.length){
+    let bonus = 0;
+    for(const t of types) bonus += (w[t]||0);
+    s += bonus * 1.8;
+  }else{
+    s += w.base*0.2; // mild default
+  }
+  // proximity bonus (closer = better), gentle
+  s += Math.max(0, 4 - p.distKm);
+  // small boost for richer data
+  if(p.website) s += 0.6;
+  return s;
+}
+function computeTop(){
+  const ranked = state.places
+    .map(p=>({p, s:scorePlace(p)}))
+    .sort((a,b)=> b.s-a.s || a.p.distKm-b.p.distKm);
+  return ranked.slice(0,10).map(x=>x.p);
+}
+
+/* ---------------- Rendering: things ---------------- */
+function renderThings(){
+  const body = document.getElementById("thingsBody");
+  if(!state.center){ body.innerHTML = `<div class="empty">Enter a location above and hit <b>Discover</b>.</div>`; return; }
+  if(!state.places.length){ body.innerHTML = `<div class="empty">No named attractions found in this radius. Try widening the radius or a nearby city.</div>`; return; }
+  const top = computeTop();
+  document.getElementById("resCount").textContent = `${state.places.length} places found near ${state.center.label}`;
+  const grid = document.createElement("div");
+  grid.className = "grid";
+  top.forEach((p,i)=>{
+    const inItin = state.itinerary.some(x=>x.id===p.id);
+    const card = el(`
+      <div class="card">
+        <span class="rank">${i+1}</span>
+        <div class="cat">${p.emoji} ${esc(p.kindLabel)}</div>
+        <div class="nm">${esc(p.name)}</div>
+        <div class="meta"><span>📏 ${fmtKm(p.distKm)} away</span>${p.phone?`<span>📞 ${esc(p.phone)}</span>`:""}</div>
+        <div class="row">
+          <a class="mini" href="${osmLink(p.lat,p.lon)}" target="_blank" rel="noopener">🗺️ Map</a>
+          ${p.website?`<a class="mini" href="${esc(p.website)}" target="_blank" rel="noopener">🔗 Site</a>`:""}
+          <span class="mini add ${inItin?'added':''}" data-add="${esc(p.id)}">${inItin?'✓ Added':'+ Add'}</span>
+        </div>
+      </div>`);
+    grid.appendChild(card);
+  });
+  body.innerHTML = "";
+  body.appendChild(grid);
+  body.querySelectorAll("[data-add]").forEach(b=>{
+    b.addEventListener("click",()=>{
+      const p = top.find(x=>x.id===b.getAttribute("data-add"));
+      togglePlaceInItin(p); renderThings(); renderItin();
+    });
+  });
+}
+
+/* ---------------- Events (Ticketmaster) ---------------- */
+async function fetchEvents(key){
+  const {lat,lon} = state.center;
+  const url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${encodeURIComponent(key)}`+
+              `&latlong=${lat},${lon}&radius=${Math.ceil(state.radiusM/1000)}&unit=km&sort=date,asc&size=20`;
+  const r = await fetch(url);
+  if(r.status===401) throw new Error("That API key was rejected. Double-check your Ticketmaster Consumer Key.");
+  if(!r.ok) throw new Error("Events service error ("+r.status+"). Try again shortly.");
+  const j = await r.json();
+  const list = (j._embedded && j._embedded.events) || [];
+  return list.map(ev=>{
+    const v = ev._embedded && ev._embedded.venues && ev._embedded.venues[0];
+    const loc = v && v.location ? {lat:+v.location.latitude, lon:+v.location.longitude} : null;
+    return {
+      id:"ev/"+ev.id, name:ev.name, type:"event",
+      date: ev.dates && ev.dates.start ? (ev.dates.start.localDate||"") : "",
+      time: ev.dates && ev.dates.start ? (ev.dates.start.localTime||"") : "",
+      venue: v ? v.name : "",
+      classification: (ev.classifications && ev.classifications[0] && ev.classifications[0].segment && ev.classifications[0].segment.name) || "Event",
+      url: ev.url, lat: loc?loc.lat:null, lon: loc?loc.lon:null,
+      distKm: loc ? haversineKm(state.center, loc) : null
+    };
+  });
+}
+function renderEvents(){
+  const body = document.getElementById("eventsBody");
+  if(!state.center){ body.innerHTML = `<div class="empty">Discover a location first.</div>`; return; }
+  if(!state.events.length){ body.innerHTML = `<div class="empty">No events loaded. Paste a Ticketmaster key above and tap <b>Load events</b>.</div>`; return; }
+  const grid = document.createElement("div"); grid.className="grid";
+  state.events.forEach(ev=>{
+    const inItin = state.itinerary.some(x=>x.id===ev.id);
+    const when = [ev.date, ev.time?ev.time.slice(0,5):""].filter(Boolean).join(" · ");
+    const card = el(`
+      <div class="card">
+        <div class="cat">🎟️ ${esc(ev.classification)}</div>
+        <div class="nm">${esc(ev.name)}</div>
+        <div class="meta">${when?`<span>🗓️ ${esc(when)}</span>`:""}${ev.venue?`<span>📍 ${esc(ev.venue)}</span>`:""}${ev.distKm!=null?`<span>📏 ${fmtKm(ev.distKm)}</span>`:""}</div>
+        <div class="row">
+          ${ev.url?`<a class="mini" href="${esc(ev.url)}" target="_blank" rel="noopener">🎫 Tickets</a>`:""}
+          <span class="mini add ${inItin?'added':''}" data-addev="${esc(ev.id)}">${inItin?'✓ Added':'+ Add'}</span>
+        </div>
+      </div>`);
+    grid.appendChild(card);
+  });
+  body.innerHTML=""; body.appendChild(grid);
+  body.querySelectorAll("[data-addev]").forEach(b=>{
+    b.addEventListener("click",()=>{
+      const ev = state.events.find(x=>x.id===b.getAttribute("data-addev"));
+      toggleEventInItin(ev); renderEvents(); renderItin();
+    });
+  });
+}
+
+/* ---------------- Itinerary builder ---------------- */
+function togglePlaceInItin(p){
+  const i = state.itinerary.findIndex(x=>x.id===p.id);
+  if(i>=0){ state.itinerary.splice(i,1); return; }
+  state.itinerary.push({id:p.id, name:p.name, kind:p.kind, kindLabel:p.kindLabel, emoji:p.emoji,
+    lat:p.lat, lon:p.lon, url:p.website, type:"place", isMeal:MEAL_KINDS.has(p.kind)});
+}
+function toggleEventInItin(ev){
+  const i = state.itinerary.findIndex(x=>x.id===ev.id);
+  if(i>=0){ state.itinerary.splice(i,1); return; }
+  state.itinerary.push({id:ev.id, name:ev.name, kind:"event", kindLabel:ev.classification, emoji:"🎟️",
+    lat:ev.lat, lon:ev.lon, url:ev.url, type:"event", fixedTime:ev.time?ev.time.slice(0,5):null, date:ev.date});
+}
+
+/* Order stops by nearest-neighbour from city center, keep events with a fixed time pinned by that time.
+   Then assign clock times starting 9:00, inserting meal slots and travel buffers. */
+function buildSchedule(){
+  const items = state.itinerary.slice();
+  // separate fixed-time events
+  const fixed = items.filter(x=>x.type==="event" && x.fixedTime).sort((a,b)=>a.fixedTime.localeCompare(b.fixedTime));
+  let flex = items.filter(x=>!(x.type==="event" && x.fixedTime));
+
+  // nearest-neighbour ordering of flex stops
+  const ordered = [];
+  let cur = state.center ? {lat:state.center.lat, lon:state.center.lon} : (flex[0]||null);
+  const pool = flex.slice();
+  while(pool.length && cur){
+    let bi=0, bd=Infinity;
+    pool.forEach((p,idx)=>{
+      if(p.lat==null||p.lon==null){ return; }
+      const d=haversineKm(cur,p); if(d<bd){bd=d;bi=idx;}
+    });
+    const next = pool.splice(bi,1)[0];
+    ordered.push(next);
+    if(next.lat!=null) cur={lat:next.lat,lon:next.lon};
+  }
+  // any with no coords, append
+  pool.forEach(p=>ordered.push(p));
+
+  // assemble timeline
+  const schedule = [];
+  let clock = 9*60; // minutes from midnight, start 9:00
+  let prev = state.center;
+  let lastMeal = -999;
+  const durFor = k => ({museum:90,gallery:60,attraction:75,viewpoint:30,artwork:20,themepark:180,zoo:150,
+     aquarium:90,park:60,garden:45,theatre:120,cinema:120,nightclub:120,bar:75,restaurant:75,cafe:45,
+     historic:60,event:120}[k]||60);
+
+  function pushTravel(from,to){
+    if(!from||!to||from.lat==null||to.lat==null) return 0;
+    const km = haversineKm(from,to);
+    const mins = Math.max(5, Math.round(km/0.45)); // ~27 km/h city avg incl. stops
+    schedule.push({travel:true, mins, km});
+    return mins;
+  }
+
+  // Merge: walk ordered flex, but insert fixed events when their time arrives
+  let fi = 0;
+  function insertDueFixed(){
+    while(fi<fixed.length && (clock >= toMin(fixed[fi].fixedTime)-30)){
+      const ev = fixed[fi++];
+      const t = Math.max(clock, toMin(ev.fixedTime));
+      clock = t;
+      if(prev) pushTravel(prev, ev);
+      schedule.push({time:clock, item:ev, dur:durFor("event"), fixed:true});
+      clock += durFor("event"); prev = ev;
+    }
+  }
+
+  for(const it of ordered){
+    insertDueFixed();
+    // meal insertion around noon/evening
+    if(!it.isMeal){
+      if(clock>=12*60 && clock<14*60 && lastMeal<11*60){
+        schedule.push({mealSuggest:"🍽️ Lunch break", time:clock, dur:60});
+        clock+=60; lastMeal=clock;
+      }
+    }
+    if(prev) pushTravel(prev, it);
+    schedule.push({time:clock, item:it, dur:durFor(it.kind)});
+    if(it.isMeal) lastMeal=clock;
+    clock += durFor(it.kind);
+    prev = it;
+  }
+  insertDueFixed();
+  // remaining fixed events even if late
+  while(fi<fixed.length){
+    const ev=fixed[fi++]; const t=Math.max(clock,toMin(ev.fixedTime)); clock=t;
+    if(prev) pushTravel(prev,ev);
+    schedule.push({time:clock,item:ev,dur:durFor("event"),fixed:true}); clock+=durFor("event"); prev=ev;
+  }
+  return schedule;
+}
+function toMin(hhmm){ const [h,m]=hhmm.split(":").map(Number); return h*60+(m||0); }
+function fmtClock(min){
+  let h=Math.floor(min/60)%24, m=min%60; const ap=h<12?"AM":"PM"; let hh=h%12; if(hh===0)hh=12;
+  return `${hh}:${String(m).padStart(2,"0")} ${ap}`;
+}
+
+function renderItin(){
+  const body = document.getElementById("itinBody");
+  if(!state.itinerary.length){
+    body.innerHTML = `<div class="empty">No stops yet. Tap <b>+ Add</b> on any result to start building your day.</div>`;
+    return;
+  }
+  const sched = buildSchedule();
+  const wrap = document.createElement("div"); wrap.className="itin";
+  sched.forEach(s=>{
+    if(s.travel){
+      wrap.appendChild(el(`<div class="travel">🚶 ~${s.mins} min · ${fmtKm(s.km)} to next stop</div>`));
+      return;
+    }
+    if(s.mealSuggest){
+      wrap.appendChild(el(`
+        <div class="slot">
+          <div class="time">${fmtClock(s.time)}<small>${s.dur}m</small></div>
+          <div><div class="what">${s.mealSuggest}</div><div class="det">Open slot — add a restaurant from Discover to fill it.</div></div>
+        </div>`));
+      return;
+    }
+    const it = s.item;
+    const linksArr = [];
+    linksArr.push(`<a class="mini" href="${osmLink(it.lat,it.lon)}" target="_blank" rel="noopener">🗺️ Map</a>`);
+    if(it.url) linksArr.push(`<a class="mini" href="${esc(it.url)}" target="_blank" rel="noopener">${it.type==="event"?"🎫 Tickets":"🔗 Site / Book"}</a>`);
+    linksArr.push(`<span class="mini" data-rm="${esc(it.id)}">✕ Remove</span>`);
+    wrap.appendChild(el(`
+      <div class="slot">
+        <div class="time">${fmtClock(s.time)}<small>${s.dur}m${s.fixed?" · fixed":""}</small></div>
+        <div>
+          <div class="what">${it.emoji} ${esc(it.name)}</div>
+          <div class="det">${esc(it.kindLabel)}${it.date?` · ${esc(it.date)}`:""}</div>
+          <div class="links">${linksArr.join("")}</div>
+        </div>
+      </div>`));
+  });
+  body.innerHTML=""; body.appendChild(wrap);
+  body.querySelectorAll("[data-rm]").forEach(b=>{
+    b.addEventListener("click",()=>{
+      const id=b.getAttribute("data-rm");
+      const i=state.itinerary.findIndex(x=>x.id===id);
+      if(i>=0) state.itinerary.splice(i,1);
+      renderItin(); renderThings(); renderEvents();
+    });
+  });
+}
+
+/* ICS export */
+function downloadICS(){
+  if(!state.itinerary.length){ alert("Add some stops first."); return; }
+  const sched = buildSchedule().filter(s=>s.item);
+  const today = new Date();
+  const y=today.getFullYear(), mo=String(today.getMonth()+1).padStart(2,"0"), d=String(today.getDate()).padStart(2,"0");
+  let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Tripspire//Phase0//EN\r\nCALSCALE:GREGORIAN\r\n";
+  sched.forEach((s,idx)=>{
+    const start = s.time, end = s.time + s.dur;
+    const dt = m => `${y}${mo}${d}T${String(Math.floor(m/60)%24).padStart(2,"0")}${String(m%60).padStart(2,"0")}00`;
+    ics += "BEGIN:VEVENT\r\n";
+    ics += `UID:tripspire-${idx}-${Date.now()}@demo\r\n`;
+    ics += `DTSTART:${dt(start)}\r\nDTEND:${dt(end)}\r\n`;
+    ics += `SUMMARY:${(s.item.emoji+" "+s.item.name).replace(/[\r\n,;]/g," ")}\r\n`;
+    const desc = [s.item.kindLabel, s.item.url||""].filter(Boolean).join(" — ").replace(/[\r\n,;]/g," ");
+    if(desc) ics += `DESCRIPTION:${desc}\r\n`;
+    if(s.item.lat!=null) ics += `GEO:${s.item.lat};${s.item.lon}\r\n`;
+    ics += "END:VEVENT\r\n";
+  });
+  ics += "END:VCALENDAR";
+  const blob = new Blob([ics],{type:"text/calendar"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="tripspire-itinerary.ics"; a.click();
+}
+
+/* ---------------- Wiring ---------------- */
+function buildChips(){
+  const c = document.getElementById("chips");
+  TRAVELER_TYPES.forEach(t=>{
+    const chip = el(`<div class="chip" data-t="${t.id}"><span class="e">${t.e}</span>${t.label}</div>`);
+    chip.addEventListener("click",()=>{
+      if(state.selectedTypes.has(t.id)) state.selectedTypes.delete(t.id);
+      else state.selectedTypes.add(t.id);
+      chip.classList.toggle("on");
+      if(state.places.length) renderThings();
+    });
+    c.appendChild(chip);
+  });
+}
+
+function setStatus(html, isErr){
+  document.getElementById("locStatus").innerHTML = html ? `<div class="${isErr?'err':'hint'}">${html}</div>` : "";
+}
+
+async function discover(){
+  const input = document.getElementById("loc").value;
+  if(!input.trim()){ setStatus("Please enter a ZIP code or city name.", true); return; }
+  state.radiusM = (+document.getElementById("radius").value)*1000;
+  setStatus(`<span class="spin"></span> Locating "${esc(input)}"…`);
+  try{
+    state.center = await geocode(input);
+    await runDiscovery();
+  }catch(e){ setStatus(e.message||"Something went wrong.", true); }
+}
+
+async function runDiscovery(){
+  setStatus(`<span class="spin"></span> Finding things to do near <b>${esc(state.center.label)}</b>…`);
+  document.getElementById("thingsBody").innerHTML = `<div class="loading"><span class="spin"></span> Pulling live places from OpenStreetMap…</div>`;
+  try{
+    state.places = await fetchPlaces();
+    state.events = [];
+    setStatus(`Showing results for <b>${esc(state.center.label)}</b> · ${state.places.length} places within ${state.radiusM/1000} km.`);
+    renderThings(); renderEvents();
+  }catch(e){
+    setStatus(e.message,true);
+    document.getElementById("thingsBody").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+function useMyLocation(){
+  if(!navigator.geolocation){ setStatus("Geolocation isn't available in this browser.", true); return; }
+  setStatus(`<span class="spin"></span> Getting your current location…`);
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const lat=pos.coords.latitude, lon=pos.coords.longitude;
+    const label = await reverseGeocode(lat,lon);
+    state.center = {lat,lon,label};
+    document.getElementById("loc").value = label;
+    state.radiusM = (+document.getElementById("radius").value)*1000;
+    await runDiscovery();
+  }, err=>{
+    setStatus("Couldn't get your location ("+err.message+"). Type a ZIP or city instead.", true);
+  }, {enableHighAccuracy:true, timeout:10000});
+}
+
+function initEvents(){
+  document.getElementById("goBtn").addEventListener("click", discover);
+  document.getElementById("loc").addEventListener("keydown", e=>{ if(e.key==="Enter") discover(); });
+  document.getElementById("geoBtn").addEventListener("click", useMyLocation);
+  const rad=document.getElementById("radius");
+  rad.addEventListener("input",()=>{ document.getElementById("radiusVal").textContent = rad.value+" km"; });
+  // tabs
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.addEventListener("click",()=>{
+      document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+      t.classList.add("on");
+      const which=t.getAttribute("data-tab");
+      document.getElementById("thingsPane").style.display = which==="things"?"":"none";
+      document.getElementById("eventsPane").style.display = which==="events"?"":"none";
+    });
+  });
+  document.getElementById("tmBtn").addEventListener("click", async ()=>{
+    const key=document.getElementById("tmKey").value.trim();
+    if(!state.center){ setStatus("Discover a location first.",true); return; }
+    if(!key){ document.getElementById("eventsBody").innerHTML=`<div class="empty">Enter a Ticketmaster API key to load live events.</div>`; return; }
+    document.getElementById("eventsBody").innerHTML=`<div class="loading"><span class="spin"></span> Loading live events…</div>`;
+    try{
+      state.events = await fetchEvents(key);
+      renderEvents();
+    }catch(e){ document.getElementById("eventsBody").innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+  });
+  document.getElementById("clearItin").addEventListener("click",()=>{
+    state.itinerary=[]; renderItin(); renderThings(); renderEvents();
+  });
+  document.getElementById("dlBtn").addEventListener("click", downloadICS);
+}
+
+buildChips();
+initEvents();
+renderItin();
+</script>
+</body>
+</html>
